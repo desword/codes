@@ -39,18 +39,24 @@ if __name__ == '__main__':
     print 'Message hex:', message.encode("hex")
     encoder = Encoder(k, map_func, message)
     
+
+    numPssMsg = 1;
+
     # spine length
-    n = 8 * len(message)
+    n = 8 * len(message) # transform into bits.
     spine_length = (n + (k - 1)) / k
     
     # encode a short message, making 3 passes
     print "Producing 3 passes."
-    symbols = [encoder.get_symbol(i) for i in range(spine_length)*3]
+    symbols = [encoder.get_symbol(i) for i in range(spine_length)*numPssMsg]
     print "symbols: ", symbols
+    print "symlen:", len(symbols)
     
     # make sure we got the expected result
-    assert(expected_encoder_output == symbols)
+    # assert(expected_encoder_output == symbols)
     
+    ###===============================================================================
+
     # get average signal power
     signal_power = mapper.get_signal_average_power()
     
@@ -62,21 +68,38 @@ if __name__ == '__main__':
     # to get deterministic results in this example.
     random.seed(314159265359)
     
-    # add white gaussian noise at 10dB to signal
-    print "Adding white gaussian noise at 10dB."
-    noisy_symbols = [sym + random.gauss(0, noise_std_dev) for sym in symbols]
-    # round to closest integer
-    noisy_symbols = [int(x + 0.5) for x in noisy_symbols]
-    print "noisy symbols:", noisy_symbols
+    # # add white gaussian noise at 10dB to signal
+    # print "Adding white gaussian noise at 10dB."
+    # noisy_symbols = [sym + random.gauss(0, noise_std_dev) for sym in symbols]
+    # # round to closest integer
+    # noisy_symbols = [int(x + 0.5) for x in noisy_symbols]
+    # print "noisy symbols:", noisy_symbols
+
+    # [cgl] myself noise symbols. if the prr is low, while the number of errors in one packet is rare, then Spinal code can also achieve very good performance.
+    noisy_symbols = [sym for sym in symbols]
+    noisy_symbols[3] +=3
     
+    ###===============================================================================
     # instantiate decoder
     decoder = Decoder(k, B, d, map_func)
     
+    
+
+
+
     # update decoder with gathered points
     for i in xrange(spine_length):
-        decoder.advance([noisy_symbols[i], 
-                         noisy_symbols[i+spine_length], 
-                         noisy_symbols[i+2*spine_length]])
+        decodeAdv = []
+        for j in range(numPssMsg):
+            decodeAdv.append(noisy_symbols[i + j*spine_length])
+        decoder.advance(decodeAdv)
+
+
+        # decoder.advance([noisy_symbols[i], 
+        #                  noisy_symbols[i+spine_length]]) 
+        # decoder.advance([noisy_symbols[i], 
+        #          noisy_symbols[i+spine_length], 
+        #          noisy_symbols[i+2*spine_length]])
     
     print "decoded hex:", decoder.get_most_likely().encode("hex")
     
